@@ -1,0 +1,145 @@
+// Store highlighted document value for the Anchor link creation
+var savedRange;
+function saveRange() {
+  savedRange = $('#notes').summernote('createRange');
+  console.log("Saved range:", savedRange.toString());
+}
+
+function restoreRange() {
+  $('#notes').summernote('restoreRange', savedRange);
+}
+
+// Start Summernote
+$('#notes').summernote({
+  dialogsInBody: true,
+  dialogsFade: true,
+  tabDisable: false,
+
+  toolbar: [
+    ['insert', ['link', 'anchor', 'hr']]
+  ],
+
+  buttons: {
+    // Link to Anchor word
+    anchor: function(context) {
+      var ui = $.summernote.ui;
+      var button = ui.button({
+        contents: '<i class="note-icon-link"/> Anchor',
+        tooltip: 'Insert Anchor',
+        click: function() {
+          saveRange();
+          console.log("Highlighted text:", savedRange.toString()); // Log the highlighted text
+          anchorDialog(context);
+        }
+      });
+      return button.render();
+    }
+  }
+});
+
+// Initialize Bootstrap tooltips
+$('[data-toggle="tooltip"]').tooltip();
+
+// Custom anchor function
+function anchorDialog(context) {
+  // Create the modal dialog dynamically
+  var anchorDialog = $('<div/>').dialog({
+    modal: true,
+    width: 400,
+    title: "Create or Select Anchor",
+    create: function(event, ui) {
+      $(this).css("overflow", "hidden");
+    },
+    open: function() {
+      var content = `
+        <div class="form-group">
+          <label for="anchorName">Enter Anchor Name</label>
+          <input type="text" id="anchorName" class="form-control" placeholder="Enter anchor name">
+        </div>
+        <div class="form-group">
+          <button type="button" class="btn btn-primary" id="createAnchorBtn">Create Anchor</button>
+        </div>
+        <div class="form-group">
+          <label for="anchorList">Select Anchor</label>
+          <select id="anchorList" class="form-control">
+            <option value="">Select an anchor</option>
+          </select>
+          <button type="button" class="btn btn-secondary" id="insertAnchorLinkBtn">Insert Anchor Link</button>
+        </div>
+      `;
+
+      // Append the content to the dialog
+      $(this).html(content);
+
+      // Populate the anchor list with existing anchors
+      updateAnchorList();
+
+      // Bind click event to the create button
+      $('#createAnchorBtn').click(function() {
+        var anchorName = $('#anchorName').val();
+        if (anchorName) {
+          restoreRange();
+          var highlightedText = savedRange.toString();
+          console.log("Highlighted text on create:", highlightedText); // Log the highlighted text on create
+          if (highlightedText) {
+            var anchorHtml = '<a name="' + anchorName + '">' + highlightedText + '</a>';
+            $('#notes').summernote('pasteHTML', anchorHtml);
+            // Add the new anchor to the drop-down list
+            $('#anchorList').append(new Option(anchorName, anchorName));
+            anchorDialog.dialog('close');
+          } else {
+            alert('Please select text to create an anchor.');
+            anchorDialog.dialog('close');
+          }
+        } else {
+          alert('Please enter an anchor name.');
+        }
+      });
+
+      // Bind click event to the insert link button
+      $('#insertAnchorLinkBtn').click(function() {
+        var selectedAnchor = $('#anchorList').val();
+        if (selectedAnchor) {
+          restoreRange();
+          var highlightedText = savedRange.toString();
+          var anchorLinkHtml = '<a href="#' + selectedAnchor + '">' + highlightedText + '</a>';
+          $('#notes').summernote('pasteHTML', anchorLinkHtml);
+          anchorDialog.dialog('close');
+        } else {
+          alert('Please select an anchor from the list.');
+        }
+      });
+    },
+    close: function() {
+      $(this).dialog('destroy').remove();
+    }
+  });
+}
+
+function updateAnchorList() {
+  var anchors = [];
+
+  // Get the HTML content of the Summernote editor
+  var summernoteContent = $('#notes').summernote('code');
+
+  // Parse the content to find all <a> tags with a 'name' attribute
+  $(summernoteContent).find('a[name]').each(function() {
+    var name = $(this).attr('name');
+    //console.log("Found anchor:", name); // Log each anchor found
+    if (name) {
+      anchors.push(name);
+    }
+  });
+
+  //console.log("All anchors:", anchors); // Log all anchors found
+
+  var anchorList = $('#anchorList');
+  anchorList.empty();
+  anchorList.append(new Option("Select an anchor", ""));
+  $.each(anchors, function(index, anchor) {
+    console.log("Adding anchor to list:", anchor); // Log anchor being added
+    anchorList.append(new Option(anchor, anchor));
+  });
+
+  //console.log("Updated anchor list:", anchorList.html());
+}
